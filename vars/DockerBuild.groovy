@@ -59,44 +59,21 @@ def call(framework = "",version = "") {
         def helmdir = new File("${WORKSPACE}/${chartFolder}")
 
         if (helmdir.exists() && helmdir.isDirectory()) {
-            sh "./yq '.image.repository=\"${dockerRepo}\"' -i ${WORKSPACE}/${chartFolder}/values.yaml"
-            sh "./yq '.image.tag=\"${appVersion}\"' -i ${WORKSPACE}/${chartFolder}/values.yaml"
+            sh "./yq '.image.repository=\"${dockerRepo}\"' -i ${WORKSPACE}/${chartFolder}/environments/dev-values.yaml"
+            sh "./yq '.image.tag=\"${appVersion}\"' -i ${WORKSPACE}/${chartFolder}/environments/dev-values.yaml"
             sh "./yq '.appVersion=\"${appVersion}\"' -i ${WORKSPACE}/${chartFolder}/Chart.yaml"
             withCredentials([gitUsernamePassword(credentialsId: 'github')]) {
                 def gStatus = sh(script: "git status --porcelain",returnStdout: true)
                 if(gStatus != "") {
                     sh "git remote get-url origin"
-                    sh "git add ."
-                    sh "git commit -m 'Updated Helm Charts'"
+                    sh "git commit -am 'Updated Helm Charts'"
                     sh "git push origin ${BRANCH}"
                 }
             }
         } else {
             println "Directory does not exist: ${helmdir}"
         }
-
-        sh """
-        wget 'https://get.helm.sh/helm-v3.0.0-linux-amd64.tar.gz'
-        tar -zxvf helm-v3.0.0-linux-amd64.tar.gz
-        cp linux-amd64/helm .
-        """
-        sh "./helm template ${WORKSPACE}/${chartFolder} -f ${WORKSPACE}/${chartFolder}/environments/${deployEnv}-values.yaml > deployment-manifest.yaml"
-        def output = sh(script: "echo -n manifest=;cat deployment-manifest.yaml",returnStdout: true)
-        writeFile(file: "deployment-manifest.yaml",text: output)
-
-
-        def fc = readFile file: "deployment-manifest.yaml"
-        fc = fc.replaceAll("\n","\\\\n")
-        writeFile file: "deployment-manifest.yaml",text: fc
-        withCredentials([gitUsernamePassword(credentialsId: 'github')]) {
-                def gStatus = sh(script: "git status --porcelain",returnStdout: true)
-                if(gStatus != "") {
-                    sh "git remote get-url origin"
-                    sh "git add ."
-                    sh "git commit -m 'Updated deployment-manifest.yaml'"
-                    sh "git push origin ${BRANCH}"
-                }
-            }      
+              
     } else {
         echo "*********************** Invalid Deployment Environment *************************"
         return           
